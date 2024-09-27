@@ -19,10 +19,10 @@ data class ChatData(
     val user2:ChatUser =ChatUser()
 )
 data class ChatUser(
-    val chatUserId: String? = "",
-    val chatName :String? = "",
-    val chatPhoneNumber :String? = "",
-    val chatImageUrl: String? = "",
+    val userId: String? = "",
+    val name :String? = "",
+    val phoneNumber :String? = "",
+    val imageUrl: String? = "",
 )
 data class Message(
     val sendBy: String? = "",

@@ -16,6 +16,7 @@ import com.example.bands.data.UserData
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.Filter
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.toObject
 import com.google.firebase.firestore.toObjects
 import com.google.firebase.storage.FirebaseStorage
@@ -36,6 +37,9 @@ class BandsViewModel @Inject constructor(
     var signIn = mutableStateOf(false)
     val userData = mutableStateOf<UserData?>(null)
     val chats = mutableStateOf<List<ChatData>>(listOf() )
+    val chatMessages = mutableStateOf<List<Message>>(listOf() )
+    var inProgressChatMessages = mutableStateOf(false)
+    var currentChatListener :ListenerRegistration? = null
 
     init {
         val currentUser = auth.currentUser
@@ -156,6 +160,8 @@ class BandsViewModel @Inject constructor(
         auth.signOut()
         signIn.value = false
         userData.value = null
+        releaseMessages()
+        currentChatListener = null
         eventMutableState.value = Event("logout")
     }
 
@@ -167,12 +173,12 @@ class BandsViewModel @Inject constructor(
             db.collection(CHATS).where(
                 Filter.or(
                     Filter.and(
-                        (Filter.equalTo("user1.chatPhoneNumber", phoneNumber)),
-                        (Filter.equalTo("user2.chatPhoneNumber", userData.value?.phoneNumber))
+                        (Filter.equalTo("user1.phoneNumber", phoneNumber)),
+                        (Filter.equalTo("user2.phoneNumber", userData.value?.phoneNumber))
                     ),
                     Filter.and(
-                        (Filter.equalTo("user1.chatPhoneNumber", userData.value?.phoneNumber)),
-                        (Filter.equalTo("user2.chatPhoneNumber", phoneNumber))
+                        (Filter.equalTo("user1.phoneNumber", userData.value?.phoneNumber)),
+                        (Filter.equalTo("user2.phoneNumber", phoneNumber))
                     )
                 )
             ).get().addOnSuccessListener {
@@ -184,6 +190,7 @@ class BandsViewModel @Inject constructor(
                             } else {
                                 val chatPartner = it.toObjects<UserData>()[0]
                                 val id = db.collection(CHATS).document().id
+
                                 val chatData = ChatData(
                                     chatId = id,
                                     user1 = ChatUser(
@@ -217,8 +224,8 @@ class BandsViewModel @Inject constructor(
     fun loadChat(){
         inProgressChats.value =true
         db.collection(CHATS).where(Filter.or(
-            Filter.equalTo("user1.chatUserId",userData.value?.userId),
-            Filter.equalTo("user2.chatUserId",userData.value?.userId)
+            Filter.equalTo("user1.userId",userData.value?.userId),
+            Filter.equalTo("user2.userId",userData.value?.userId)
         )).addSnapshotListener { value, error ->
             if (error != null){
                 handleException(error)
@@ -253,9 +260,26 @@ class BandsViewModel @Inject constructor(
         val chatMessage=Message(userData.value?.userId,message,time)
         db.collection(CHATS).document(chatId).collection(MESSAGE).document().set(chatMessage)
 
+    }
 
+    fun loadMessages(chatId: String){
+        inProgressChatMessages.value =true
+        currentChatListener =db.collection(CHATS).document(chatId).collection(MESSAGE).addSnapshotListener { value, error ->
+            if (error!=null){
+                handleException(error)
+            }
+            if (value != null){
+                chatMessages.value = value.documents.mapNotNull {
+                    it.toObject<Message>()
+                }.sortedBy { it.timeStamp }
+                inProgressChatMessages.value = false
+            }
+        }
+    }
 
-
+    fun releaseMessages(){
+        chatMessages.value = listOf()
+        currentChatListener = null
     }
 
     fun handleException(exception: Exception? = null, customMessage: String? = null) {
