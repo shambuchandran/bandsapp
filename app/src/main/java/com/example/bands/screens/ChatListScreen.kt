@@ -1,6 +1,5 @@
 package com.example.bands.screens
 
-import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,7 +34,6 @@ import com.example.bands.CommonRow
 import com.example.bands.CommonTitleText
 import com.example.bands.DestinationScreen
 import com.example.bands.navigateTo
-import kotlin.math.log
 
 @Composable
 fun ChatListScreen(navController: NavController, viewModel: BandsViewModel) {

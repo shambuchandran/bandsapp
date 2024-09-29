@@ -6,12 +6,12 @@ data class UserData(
     var phoneNumber: String? = null,
     var imageUrl: String? = null,
 ) {
-    fun toMap() = mapOf(
-        "userid" to userId,
-        "name" to name,
-        "phoneNumber" to phoneNumber,
-        "imageUrl" to imageUrl
-    )
+//    fun toMap() = mapOf(
+//        "userid" to userId,
+//        "name" to name,
+//        "phoneNumber" to phoneNumber,
+//        "imageUrl" to imageUrl
+//    )
 }
 data class ChatData(
     val chatId :String? ="",
@@ -28,5 +28,9 @@ data class Message(
     val sendBy: String? = "",
     val message :String? = "",
     val timeStamp :String? = "",
-
+)
+data class Status(
+    val user: ChatUser = ChatUser(),
+    val imageUrl: String? = null,
+    val timeStamp :Long? = null,
 )
