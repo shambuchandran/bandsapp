@@ -1,9 +1,11 @@
 package com.example.bands
 
+import android.app.Activity
 import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.text.isDigitsOnly
 import androidx.lifecycle.ViewModel
 import com.example.bands.data.CHATS
@@ -16,7 +18,11 @@ import com.example.bands.data.STATUS
 import com.example.bands.data.Status
 import com.example.bands.data.USER_NODE
 import com.example.bands.data.UserData
+import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.PhoneAuthCredential
+import com.google.firebase.auth.PhoneAuthOptions
+import com.google.firebase.auth.PhoneAuthProvider
 import com.google.firebase.firestore.Filter
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -30,6 +36,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.util.Calendar
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltViewModel
@@ -55,6 +62,12 @@ class BandsViewModel @Inject constructor(
     //var inProgressStatus = mutableStateOf(false)
     var inProgressStatus = MutableStateFlow(false)
 
+    var verificationId = mutableStateOf("")
+    var otpInProgress = mutableStateOf(false)
+    var otpSent = mutableStateOf(false)
+    var resentToken: PhoneAuthProvider.ForceResendingToken? = null
+
+
     init {
         val currentUser = auth.currentUser
         signIn.value = currentUser != null
@@ -64,6 +77,7 @@ class BandsViewModel @Inject constructor(
             }
         }
     }
+
 
     fun signUp(name: String, phoneNumber: String, email: String, password: String) {
         inProgress.value = true
@@ -156,6 +170,7 @@ class BandsViewModel @Inject constructor(
                         getUserData(uid)
                     }.addOnFailureListener {
                         handleException(it, customMessage = "Cannot update user")
+                        Log.d("createOrUpdateProfile on success",it.toString())
                         inProgress.value = false
                     }
                 } else {
@@ -165,10 +180,13 @@ class BandsViewModel @Inject constructor(
                 }
             }.addOnFailureListener {
                 handleException(it, "Cannot retrieve User")
+                Log.d("createOrUpdateProfile on fail",it.toString())
                 inProgress.value = false
             }
         }
     }
+
+
 
     fun logout() {
         auth.signOut()
@@ -180,8 +198,11 @@ class BandsViewModel @Inject constructor(
     }
 
     fun onAddChat(phoneNumber: String) {
-        if (phoneNumber.isEmpty() || !phoneNumber.isDigitsOnly()) {
+        if (phoneNumber.isEmpty() ||
+            (!phoneNumber.startsWith("+") && !phoneNumber.isDigitsOnly()) ||
+            (phoneNumber.startsWith("+") && !phoneNumber.drop(1).isDigitsOnly())) {
             handleException(customMessage = "Enter numbers only")
+            Log.d("onAddChat-1", "Failure")
             return
         } else {
             db.collection(CHATS).where(
@@ -201,6 +222,7 @@ class BandsViewModel @Inject constructor(
                         .addOnSuccessListener {
                             if (it.isEmpty) {
                                 handleException(customMessage = "Number not found")
+                                Log.d("onAddChat0", "Failure")
                             } else {
                                 val chatPartner = it.toObjects<UserData>()[0]
                                 val id = db.collection(CHATS).document().id
@@ -224,12 +246,14 @@ class BandsViewModel @Inject constructor(
                             }
                         }.addOnFailureListener {
                             handleException(it)
+                            Log.d("onAddChat1", "Failure")
                         }
                 } else {
                     handleException(customMessage = "Contact already exists")
                 }
             }.addOnFailureListener {
                 handleException(it)
+                Log.d("onAddChat2", "Failure")
             }
         }
 
@@ -245,6 +269,8 @@ class BandsViewModel @Inject constructor(
         ).addSnapshotListener { value, error ->
             if (error != null) {
                 handleException(error)
+                Log.d("loadChat",error.toString())
+
             }
             if (value != null) {
                 chats.value = value.documents.mapNotNull {
@@ -261,6 +287,7 @@ class BandsViewModel @Inject constructor(
         db.collection(USER_NODE).document(uid).addSnapshotListener { value, error ->
             if (error != null) {
                 handleException(error, "Cannot retrieve User")
+                Log.d("getUserData on error",error.toString())
             }
             if (value != null) {
                 val user = value.toObject<UserData>()
@@ -342,6 +369,7 @@ class BandsViewModel @Inject constructor(
             ).addSnapshotListener { value, error ->
                 if (error != null) {
                     handleException(error)
+                    Log.d("loadStatuses error",error.toString())
                     inProgressStatus.value = false
                     return@addSnapshotListener
                 }
@@ -359,6 +387,7 @@ class BandsViewModel @Inject constructor(
                             .addSnapshotListener { value, error ->
                                 if (error != null) {
                                     handleException(error)
+                                    Log.d("loadStatuses value",error.toString())
                                     inProgressStatus.value = false
                                 }
                                 if (value != null) {
@@ -405,4 +434,102 @@ class BandsViewModel @Inject constructor(
             }
 
     }
+
+    private val verificationCallBacks =
+        object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
+            override fun onVerificationCompleted(credential: PhoneAuthCredential) {
+                signInWithPhoneAuthCredential(credential)
+            }
+
+            override fun onVerificationFailed(e: FirebaseException) {
+                otpInProgress.value = false
+                handleException(e)
+                Log.e("PhoneAuth", "Verification Failed: ${e.message}")
+            }
+
+            override fun onCodeSent(
+                verificationId: String,
+                token: PhoneAuthProvider.ForceResendingToken
+            ) {
+                this@BandsViewModel.verificationId.value = verificationId
+                resentToken = token
+                otpInProgress.value = false
+                otpSent.value = true
+                Log.d("PhoneAuth", "Code sent: $verificationId")
+            }
+
+        }
+
+    fun verifyOtp(otp: String) {
+        Log.d("PhoneAuthOtp", "Verification ID: ${verificationId.value}, OTP: $otp")
+        if (verificationId.value.isEmpty() || otp.isEmpty()) {
+            handleException(exception = null,customMessage = "Verification ID or OTP is empty")
+            Log.d("Verification ID or OTP is empty","otp empty or verifi value empty")
+            return
+        }
+        val credential = PhoneAuthProvider.getCredential(verificationId.value, otp)
+        signInWithPhoneAuthCredential(credential)
+    }
+
+    private fun signInWithPhoneAuthCredential(credential: PhoneAuthCredential) {
+        auth.signInWithCredential(credential).addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val user = auth.currentUser
+                val phoneNumber = user?.phoneNumber
+                Log.d("PhoneAuth", "SignIn success!")
+                checkUserExists(phoneNumber)
+            } else {
+                handleException(task.exception)
+                Log.e("PhoneAuth", "SignIn failed: ${task.exception?.message}")
+            }
+        }
+
+    }
+
+    private fun checkUserExists(phoneNumber: String?) {
+        val userRef = FirebaseFirestore.getInstance().collection(USER_NODE)
+        userRef.whereEqualTo("phoneNumber", phoneNumber)
+            .get()
+            .addOnSuccessListener { document ->
+                if (document.isEmpty) {
+                    createOrUpdateProfile(phoneNumber = phoneNumber)
+                } else {
+                    val userId = document.documents.first().id
+                    getUserData(userId)
+                }
+            }.addOnFailureListener { e ->
+                handleException(e)
+            }
+
+    }
+
+
+    fun startPhoneNumberVerification(phoneNumber: String, activity: Activity) {
+        val options = PhoneAuthOptions.newBuilder(auth)
+            .setPhoneNumber(phoneNumber)
+            .setTimeout(60L, TimeUnit.SECONDS)
+            .setActivity(activity)
+            .setCallbacks(verificationCallBacks)
+            .build()
+        PhoneAuthProvider.verifyPhoneNumber(options)
+        otpInProgress.value = true
+    }
+
+    fun resendVerificationCode(phoneNumber: String, activity: Activity) {
+        if (resentToken == null) {
+            handleException(customMessage = "No token available for resending code")
+            return
+        }
+        val options = PhoneAuthOptions.newBuilder(auth)
+            .setPhoneNumber(phoneNumber)
+            .setTimeout(60L, TimeUnit.SECONDS)
+            .setActivity(activity)
+            .setCallbacks(verificationCallBacks)
+            .setForceResendingToken(resentToken!!)
+            .build()
+
+        PhoneAuthProvider.verifyPhoneNumber(options)
+        otpInProgress.value = true
+    }
+
 }

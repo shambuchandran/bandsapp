@@ -89,4 +89,8 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
 
     implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
+    implementation("androidx.compose.material:material:1.6.0")
+    implementation("com.github.jump-sdk:jetpack_compose_country_code_picker_emoji:2.2.7")
+
+
 }

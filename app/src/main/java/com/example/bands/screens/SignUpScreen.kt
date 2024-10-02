@@ -78,7 +78,7 @@ fun SignUpScreen(navController: NavController, viewModel: BandsViewModel) {
             val passwordState = remember {
                 mutableStateOf(TextFieldValue())
             }
-            val focus = LocalFocusManager.current
+            //val focus = LocalFocusManager.current
             OutlinedTextField(value = nameState.value, onValueChange = { nameState.value = it }, label = { Text(
                 text = "Name"
             )}, modifier = Modifier.padding(8.dp))

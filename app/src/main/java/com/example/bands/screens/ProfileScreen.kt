@@ -65,7 +65,8 @@ fun ProfileScreen(navController: NavController, viewModel: BandsViewModel) {
                 onSave = { viewModel.createOrUpdateProfile(name = name,phoneNumber = phoneNumber)
                 },
                 onLogout = {viewModel.logout()
-                           navigateTo(navController,DestinationScreen.Login.route)
+                    // navigateTo(navController,DestinationScreen.Login.route)
+                    navigateTo(navController,DestinationScreen.PhoneAuth.route)
                 },
                 onBack = { navigateTo(navController,DestinationScreen.ChatList.route) }
             )

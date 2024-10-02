@@ -14,6 +14,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.bands.screens.ChatListScreen
 import com.example.bands.screens.LoginScreen
+import com.example.bands.screens.PhoneAuthScreen
 import com.example.bands.screens.ProfileScreen
 import com.example.bands.screens.SignUpScreen
 import com.example.bands.screens.SingleChatScreen
@@ -24,6 +25,7 @@ import dagger.hilt.android.AndroidEntryPoint
 
 sealed class DestinationScreen(var route: String) {
     object SignUp : DestinationScreen("signup")
+    object PhoneAuth : DestinationScreen("phoneAuth")
     object Login : DestinationScreen("login")
     object Profile : DestinationScreen("profile")
     object ChatList : DestinationScreen("chatList")
@@ -59,7 +61,10 @@ class MainActivity : ComponentActivity() {
     fun BandsAppNavigation() {
         val navController = rememberNavController()
         val viewModel = hiltViewModel<BandsViewModel>()
-        NavHost(navController = navController, startDestination = DestinationScreen.SignUp.route) {
+        NavHost(navController = navController, startDestination = DestinationScreen.PhoneAuth.route) {
+            composable(DestinationScreen.PhoneAuth.route) {
+                PhoneAuthScreen(navController, viewModel)
+            }
             composable(DestinationScreen.SignUp.route) {
                 SignUpScreen(navController, viewModel)
             }
