@@ -137,9 +137,12 @@ fun PhoneAuthScreen(navController: NavHostController, viewModel: BandsViewModel)
 
                 Button(onClick = {
                     // Handle OTP verification
+                    phoneNumber=""
                     viewModel.verifyOtp(otpReceived)
                     Log.d("OTP", "Verifying OTP: $otpReceived")
                     navigateTo(navController,DestinationScreen.Profile.route)
+                    isPhoneNumberValid=false
+                    showOtpField=false
                 }, modifier = Modifier.padding(8.dp)) {
                     Text(text = "Verify the OTP")
                 }

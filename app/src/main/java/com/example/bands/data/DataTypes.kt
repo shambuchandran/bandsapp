@@ -1,10 +1,14 @@
 package com.example.bands.data
 
+enum class Availability{
+    ONLINE,OFFLINE,IN_CALL
+}
 data class UserData(
     var userId: String? = null,
     var name: String? = null,
     var phoneNumber: String? = null,
     var imageUrl: String? = null,
+    var availability: Availability = Availability.OFFLINE
 ) {
 //    fun toMap() = mapOf(
 //        "userid" to userId,
@@ -22,7 +26,7 @@ data class ChatUser(
     val userId: String? = "",
     val name :String? = "",
     val phoneNumber :String? = "",
-    val imageUrl: String? = "",
+    val imageUrl: String? = ""
 )
 data class Message(
     val sendBy: String? = "",

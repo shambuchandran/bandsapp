@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.text.isDigitsOnly
 import androidx.lifecycle.ViewModel
+import com.example.bands.data.Availability
 import com.example.bands.data.CHATS
 import com.example.bands.data.ChatData
 import com.example.bands.data.ChatUser
@@ -114,6 +115,7 @@ class BandsViewModel @Inject constructor(
             auth.signInWithEmailAndPassword(email, password).addOnCompleteListener {
                 if (it.isSuccessful) {
                     signIn.value = true
+                    updateAvailability(Availability.ONLINE)
                     inProgress.value = false
                     auth.currentUser?.uid.let {
                         if (it != null) {
@@ -152,14 +154,16 @@ class BandsViewModel @Inject constructor(
     fun createOrUpdateProfile(
         name: String? = null,
         phoneNumber: String? = null,
-        imageUrl: String? = null
+        imageUrl: String? = null,
+        availability: Availability=Availability.OFFLINE
     ) {
         val uid = auth.currentUser?.uid
         val userData = UserData(
             userId = uid,
             name = name ?: this.userData.value?.name,
             phoneNumber = phoneNumber ?: this.userData.value?.phoneNumber,
-            imageUrl = imageUrl ?: this.userData.value?.imageUrl
+            imageUrl = imageUrl ?: this.userData.value?.imageUrl,
+            availability= availability
         )
         uid.let {
             inProgress.value = true
@@ -168,6 +172,7 @@ class BandsViewModel @Inject constructor(
                     db.collection(USER_NODE).document(uid).set(userData).addOnSuccessListener {
                         inProgress.value = false
                         getUserData(uid)
+                        updateAvailability(Availability.ONLINE)
                     }.addOnFailureListener {
                         handleException(it, customMessage = "Cannot update user")
                         Log.d("createOrUpdateProfile on success",it.toString())
@@ -177,6 +182,7 @@ class BandsViewModel @Inject constructor(
                     db.collection(USER_NODE).document(uid).set(userData)
                     inProgress.value = false
                     getUserData(uid)
+                    updateAvailability(Availability.ONLINE)
                 }
             }.addOnFailureListener {
                 handleException(it, "Cannot retrieve User")
@@ -189,6 +195,7 @@ class BandsViewModel @Inject constructor(
 
 
     fun logout() {
+        updateAvailability(Availability.OFFLINE)
         auth.signOut()
         signIn.value = false
         userData.value = null
@@ -293,6 +300,7 @@ class BandsViewModel @Inject constructor(
                 val user = value.toObject<UserData>()
                 userData.value = user
                 inProgress.value = false
+                updateAvailability(Availability.ONLINE)
                 loadChat()
                 loadStatuses()
             }
@@ -530,6 +538,19 @@ class BandsViewModel @Inject constructor(
 
         PhoneAuthProvider.verifyPhoneNumber(options)
         otpInProgress.value = true
+    }
+    fun updateAvailability(availability: Availability) {
+        val uid = auth.currentUser?.uid ?: return
+        val update = mapOf("availability" to availability)
+
+        db.collection(USER_NODE).document(uid).update(update)
+            .addOnSuccessListener {
+                userData.value?.availability = availability
+                Log.d("BandsViewModel", "User availability updated to $availability")
+            }
+            .addOnFailureListener {
+                handleException(it, customMessage = "Failed to update availability")
+            }
     }
 
 }
